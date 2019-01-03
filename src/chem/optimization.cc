@@ -406,10 +406,21 @@ std::vector<std::vector<double>>& Optimization::generate_optorb_integrals_from_a
 
   VectorXd grad = gradient(param_indices);
   //std::cout << "\ngrad \n" << grad;
+  /*
   double eps = 1e-8;
-  double eta = 0.01;
+  double eta = 0.001;
   double beta1 = 0.1;
-  double beta2 = 0.01;
+  double beta2 = 0.001;
+  */
+  double eps = 1e-8;
+  double eta = 0.005;
+  double beta1 = 0.1;
+  double beta2 = 0.005;
+   
+  if (Parallel::is_master()) {
+    std::cout<<"learning parameters: eta, beta1, beta2 = "<<eta<<", "<<beta1<<", "<<beta2<<"\n";
+  }
+
   VectorXd new_param = VectorXd::Zero(dim);
   double m_prev, v_hat_prev, m, v, v_hat;
   for (unsigned i = 0; i < dim; i++) {
@@ -492,10 +503,11 @@ VectorXd Optimization::gradient(
     const std::vector<std::pair<unsigned, unsigned>>& param_indices) const {
   unsigned n_param = param_indices.size();
   VectorXd grad(n_param);
+  unsigned p, q;
 #pragma omp parallel for
   for (unsigned i = 0; i < n_param; i++) {
-    unsigned p = param_indices[i].first;
-    unsigned q = param_indices[i].second;
+    p = param_indices[i].first;
+    q = param_indices[i].second;
     grad(i) = 2 * (generalized_Fock(p, q) - generalized_Fock(q, p));
   }
   Timer::checkpoint("compute gradient");
@@ -506,13 +518,15 @@ MatrixXd Optimization::hessian(
     const std::vector<std::pair<unsigned, unsigned>>& param_indices) const {
   unsigned n_param = param_indices.size();
   MatrixXd hessian(n_param, n_param);
+  unsigned p, q, r, s;
 #pragma omp parallel for
   for (unsigned i = 0; i < n_param; i++) {
-    for (unsigned j = 0; j < n_param; j++) {
-      unsigned p = param_indices[i].first;
-      unsigned q = param_indices[i].second;
-      unsigned r = param_indices[j].first;
-      unsigned s = param_indices[j].second;
+    for (unsigned j = 0; j <= i; j++) { 
+      // only fills in lower triangular part of hessian as needed for Eigen::SelfAdjointEigenSolver
+      p = param_indices[i].first;
+      q = param_indices[i].second;
+      r = param_indices[j].first;
+      s = param_indices[j].second;
       hessian(i, j) = hessian_part(p, q, r, s) - hessian_part(p, q, s, r) -
                       hessian_part(q, p, r, s) + hessian_part(q, p, s, r);
     }
@@ -525,10 +539,11 @@ VectorXd Optimization::hessian_diagonal(
     const std::vector<std::pair<unsigned, unsigned>>& param_indices) const {
   unsigned n_param = param_indices.size();
   VectorXd hessian_diagonal(n_param);
+  unsigned p, q;
 #pragma omp parallel for
   for (unsigned i = 0; i < n_param; i++) {
-    unsigned p = param_indices[i].first;
-    unsigned q = param_indices[i].second;
+    p = param_indices[i].first;
+    q = param_indices[i].second;
     hessian_diagonal(i) = hessian_part(p, q, p, q) - hessian_part(p, q, q, p) -
                           hessian_part(q, p, p, q) + hessian_part(q, p, q, p);
   }

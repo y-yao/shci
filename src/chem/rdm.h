@@ -44,20 +44,21 @@ class RDM {
 
   double two_rdm_elem(unsigned, unsigned, unsigned, unsigned) const;
 
+  void compute_energy_from_rdm() const;
  private:
   Integrals* integrals_p;
 
-  unsigned n_orbs, n_up, n_dn;
+  size_t n_orbs;
+
+  unsigned n_up, n_dn;
 
   MatrixXd one_rdm;
 
   std::vector<double> two_rdm;
 
-  inline unsigned combine4_2rdm(unsigned p, unsigned q, unsigned r, unsigned s) const;
+  inline size_t combine4_2rdm(size_t p, size_t q, size_t r, size_t s) const;
 
   int permfac_ccaa(HalfDet halfket, unsigned p, unsigned q, unsigned r, unsigned s) const;
-
-  void compute_energy_from_rdm() const;
 
   void get_2rdm_elements(
       const Det& connected_det,
@@ -65,5 +66,5 @@ class RDM {
       const Det& this_det,
       const double& this_coef);
 
-  void write_in_2rdm(unsigned p, unsigned q, unsigned r, unsigned s, double value);
+  void write_in_2rdm(size_t p, size_t q, size_t r, size_t s, double value);
 };
