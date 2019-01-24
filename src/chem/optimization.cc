@@ -2,6 +2,7 @@
 
 #include "../parallel.h"
 #include "../timer.h"
+#include "../../lib/fgpl/src/dist_range.h"
 
 void Optimization::generate_natorb_integrals() {
   //======================================================
@@ -99,19 +100,21 @@ void Optimization::rotate_integrals(const MatrixXd& rot) {
   }
 
 // Two-body integrals
-#pragma omp parallel for
-  for (unsigned p = 0; p < n_orbs; p++) {
-    for (unsigned q = 0; q < n_orbs; q++) {
-      for (unsigned r = 0; r < n_orbs; r++) {
-        for (unsigned s = 0; s < n_orbs; s++) {
-          tmp_integrals[p][q][r][s] = integrals_p->get_2b(p, q, r, s);
-        }  // s
-      }  // r
-    }  // q
-  }  // p
+  fgpl::DistRange<unsigned> orbs_range(0, n_orbs);
+  orbs_range.for_each([&](const unsigned p) {
+     for (unsigned p = 0; p < n_orbs; p++) {
+      for (unsigned q = 0; q < n_orbs; q++) {
+        for (unsigned r = 0; r < n_orbs; r++) {
+          for (unsigned s = 0; s < n_orbs; s++) {
+            tmp_integrals[p][q][r][s] = integrals_p->get_2b(p, q, r, s);
+          }  // s
+        }  // r
+      }  // q
+  });
 
-#pragma omp parallel for
-  for (unsigned p = 0; p < n_orbs; p++) {
+  orbs_range.for_each([&](const unsigned p) {
+// #pragma omp parallel for
+  // for (unsigned p = 0; p < n_orbs; p++) {
     for (unsigned q = 0; q < n_orbs; q++) {
       for (unsigned r = 0; r < n_orbs; r++) {
         for (unsigned s = 0; s < n_orbs; s++) {
@@ -123,12 +126,23 @@ void Optimization::rotate_integrals(const MatrixXd& rot) {
         }  // s
       }  // r
     }  // q
-  }  // p
+  // }  // p
+   });
+// const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm
+  unsigned n_procs = Parallel::get_n_procs();
+  for (unsigned p = 0; p < n_orbs; p++) {
+    for (unsigned q = 0; q < n_orbs; q++) {
+      for (unsigned r = 0; r < n_orbs; r++) {
+        MPI_Bcast(new_integrals[p][q][r].data(), n_orbs, MPI_DOUBLE, p % n_procs, MPI_COMM_WORLD); 
+      }  // r
+    }  // q
+  }
 
   tmp_integrals = new_integrals;
 
-#pragma omp parallel for
-  for (unsigned p = 0; p < n_orbs; p++) {
+  orbs_range.for_each([&](const unsigned p) {
+// #pragma omp parallel for
+  // for (unsigned p = 0; p < n_orbs; p++) {
     for (unsigned q = 0; q < n_orbs; q++) {
       for (unsigned r = 0; r < n_orbs; r++) {
         for (unsigned s = 0; s < n_orbs; s++) {
@@ -140,12 +154,22 @@ void Optimization::rotate_integrals(const MatrixXd& rot) {
         }  // s
       }  // r
     }  // q
-  }  // p
+  // }  // p
+   });
+
+  for (unsigned p = 0; p < n_orbs; p++) {
+    for (unsigned q = 0; q < n_orbs; q++) {
+      for (unsigned r = 0; r < n_orbs; r++) {
+        MPI_Bcast(new_integrals[p][q][r].data(), n_orbs, MPI_DOUBLE, p % n_procs, MPI_COMM_WORLD); 
+      }  // r
+    }  // q
+  }
 
   tmp_integrals = new_integrals;
 
-#pragma omp parallel for
-  for (unsigned p = 0; p < n_orbs; p++) {
+  orbs_range.for_each([&](const unsigned p) {
+// #pragma omp parallel for
+  // for (unsigned p = 0; p < n_orbs; p++) {
     for (unsigned q = 0; q < n_orbs; q++) {
       for (unsigned r = 0; r < n_orbs; r++) {
         for (unsigned s = 0; s < n_orbs; s++) {
@@ -157,7 +181,7 @@ void Optimization::rotate_integrals(const MatrixXd& rot) {
         }  // s
       }  // r
     }  // q
-  }  // p
+  // }  // p
 
   tmp_integrals = new_integrals;
 
